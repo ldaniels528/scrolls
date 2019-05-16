@@ -1,0 +1,22 @@
+<div ng-controller="HomeController" ng-init="initHome()">
+    <h1>Bible</h1>
+
+    <div class="col-md-12">
+        <select ng-model="selection.book"
+                ng-change="updateChapters(selection.book)"
+                ng-options="book.name as book.displayName for book in bibleBookNames">
+        </select>
+
+        <select ng-model="selection.chapter"
+                ng-change="loadChapter(selection.book, selection.chapter)"
+                ng-options="chapter as chapter for chapter in chapters">
+        </select>
+    </div>
+
+    <div class="col-md-12" style="margin-top: 16px">
+        <div ng-repeat="verse in verses">
+            <span class="verse_number">{{ verse.verse }}</span> {{ verse.text }}
+        </div>
+    </div>
+
+</div>
