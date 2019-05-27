@@ -1,5 +1,5 @@
 <div ng-controller="HomeController" ng-init="initHome()">
-    <h1>Bible</h1>
+    <div class="title">Research Bible</div>
 
     <div class="col-md-12">
         <select ng-model="selection.book"
@@ -11,12 +11,22 @@
                 ng-change="loadChapter(selection.book, selection.chapter)"
                 ng-options="chapter as chapter for chapter in chapters">
         </select>
+
+        <span style="float: right; margin-right: 50px">
+            <input ng-model="searchText" type="text" size="30" class="search_field">
+            <button ng-click="search(searchText)" class="search_button">Search</button>
+        </span>
     </div>
 
-    <div class="col-md-12" style="margin-top: 16px">
-        <div ng-repeat="verse in verses">
-            <span class="verse_number">{{ verse.verse }}</span> {{ verse.text }}
-        </div>
+    <div ng-show="errors" ng-repeat="error in errors" style="margin-top: 32px">
+        <span style="color: #ff0000; font-weight: bold">{{ error }}</span>
+    </div>
+
+    <div class="col-md-12" style="margin-top: 16px; margin-right: 32px;">
+        <span ng-repeat="verse in verses">
+            <span ng-class="isSelected(verse) ? 'selected_verse' : 'verse_number'"><sup>{{ verse.verse }}</sup></span>
+            <span ng-class="isSelected(verse) ? 'selected_text' : 'verse_text'">{{ verse.text }}</span>
+        </span>
     </div>
 
 </div>

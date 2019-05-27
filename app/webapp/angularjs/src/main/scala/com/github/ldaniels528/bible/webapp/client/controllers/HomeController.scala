@@ -1,45 +1,62 @@
 package com.github.ldaniels528.bible.webapp.client.controllers
 
-import com.github.ldaniels528.bible.models.Verse
+import com.github.ldaniels528.bible.models.{BibleBook, Verse}
 import com.github.ldaniels528.bible.webapp.client.RootScope
 import com.github.ldaniels528.bible.webapp.client.controllers.HomeController._
 import com.github.ldaniels528.bible.webapp.client.services.BibleService
-import io.scalajs.JSON
 import io.scalajs.dom.html.browser.console
 import io.scalajs.npm.angularjs.{Controller, Log, injected}
 
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Random, Success}
 
 /**
   * Home Controller
   * @author lawrence.daniels@gmail.com
   */
-case class HomeController($scope: HomeScope,
-                          $log: Log,
+case class HomeController($scope: HomeScope, $log: Log,
                           @injected(name = "BibleService") bibleService: BibleService) extends Controller {
 
-  $scope.selection = new Selection(book = js.undefined, chapter = js.undefined, verse = js.undefined)
-
-  $scope.bibleBookNames = bibleBooks.map {
-    case BibleBook(name, chapters) if name.contains("_") =>
-      val displayName = name.split('_').toList match {
-        case a :: b :: Nil => s"$a ${b.capitalize}"
-        case list => list.mkString(" ")
-      }
-      new BibleBookJS(name = name, displayName = displayName, chapters = chapters)
-    case BibleBook(name, chapters) =>
-      new BibleBookJS(name = name, displayName = name.capitalize, chapters = chapters)
-  }
-
-  $scope.initHome = () => {
+  /**
+    * Initializes the controller
+    */
+  def init(): Unit = {
     console.info(s"Initializing ${getClass.getSimpleName}...")
+
+    // get a random book of the bible
+    val aRandomBook = bibleBooks(new Random().nextInt(bibleBooks.length)).name
+
+    // select the first chapter of the book
+    $scope.selection = new Selection(book = aRandomBook, chapter = "1", verses = js.undefined)
+
+    $scope.bibleBookNames = bibleBooks.map {
+      case BibleBook(name, chapters) if name.contains("_") =>
+        val displayName = name.split('_').toList match {
+          case a :: b :: Nil => s"$a ${b.capitalize}"
+          case list => list.mkString(" ")
+        }
+        new BibleBookJS(name = name, displayName = displayName, chapters = chapters)
+      case BibleBook(name, chapters) =>
+        new BibleBookJS(name = name, displayName = name.capitalize, chapters = chapters)
+    }
+
+    // pre-load the book's chapter
+    for {
+      book <- $scope.selection.flatMap(_.book)
+      chapter <- $scope.selection.flatMap(_.chapter)
+    } {
+      loadChapter(book, chapter)
+    }
   }
 
-  $scope.loadChapter = (aName: js.UndefOr[String], aChapter: js.UndefOr[String]) => {
-    console.info(s"loadChapter($aName, $aChapter)")
+  /**
+    * Loads the specified chapter for the given book name
+    * @param aName    the name of the book to load
+    * @param aChapter the chapter of the book to load
+    */
+  def loadChapter(aName: js.UndefOr[String], aChapter: js.UndefOr[String], aVerse: js.UndefOr[String] = js.undefined): Unit = {
     for {
       name <- aName
       chapter <- aChapter
@@ -47,19 +64,102 @@ case class HomeController($scope: HomeScope,
       bibleService.getChapter(name, chapter).toFuture onComplete {
         case Success(response) =>
           $scope.$apply(() => $scope.verses = response.data)
-          console.info(s"verses = ${JSON.stringify(response.data)}")
         case Failure(e) =>
           console.error(s"Failed to read chapters for $name/$chapter: ${e.getMessage}")
       }
     }
   }
 
-  $scope.updateChapters = (aName: js.UndefOr[String]) => aName foreach { name =>
-    console.info(s"Updating chapters for $name")
-    $scope.selection.foreach(_.chapter = "1")
-    $scope.chapters = bibleBooks.find(_.name == name).map(bb => (1 to bb.chapters).map(_.toString).toJSArray).orUndefined
-    $scope.loadChapter($scope.selection.flatMap(_.book), $scope.selection.flatMap(_.chapter))
+  /**
+    * Performs the search for a scripture or set of scriptures
+    * @param aSearchText the given search text (e.g. "luke 12:8-11")
+    */
+  def search(aSearchText: js.UndefOr[String]): Unit = aSearchText foreach { searchText =>
+    parseSelection(searchText).toOption match {
+      case Some(selection) =>
+        $scope.selection = selection
+        updateChapters(selection.book, selection.chapter)
+      case None =>
+        addError(s"Could not decipher '$searchText'")
+    }
   }
+
+  def updateChapters(aName: js.UndefOr[String], aChapter: js.UndefOr[String] = "1"): Unit = {
+    for {
+      name <- aName
+      chapter <- aChapter
+    } {
+      console.info(s"Updating chapters for $name")
+      //$scope.selection.foreach(_.chapter = chapter)
+      $scope.chapters = bibleBooks.find(_.name == name).map(bb => (1 to bb.chapters).map(_.toString).toJSArray).orUndefined
+      loadChapter($scope.selection.flatMap(_.book), $scope.selection.flatMap(_.chapter))
+    }
+  }
+
+  private def addError(message: String): Unit = {
+    console.error(message)
+    if ($scope.errors.isEmpty) $scope.errors = new js.Array[String]()
+    $scope.errors.foreach(_.push(message))
+  }
+
+  /**
+    * Parses the given search text and attempts to extract a selection
+    * @param searchText the given search text
+    * @return the [[Selection]] or <code>undefined</code>
+    */
+  private def parseSelection(searchText: String): js.UndefOr[Selection] = {
+    val terms = searchText.map {
+      case c if c.isLetterOrDigit => c
+      case _ => ' '
+    }.trim.replaceAllLiterally("  ", " ").split(' ').toList
+
+    def range(verse0: js.UndefOr[String], verse1: js.UndefOr[String]): js.UndefOr[js.Array[String]] = {
+      (verse0, verse1) match {
+        case (v0, v1) if v0.isEmpty & v1.isEmpty => js.undefined
+        case (v0, v1) if v0.isEmpty => v1.map(js.Array(_))
+        case (v0, v1) if v1.isEmpty => v0.map(js.Array(_))
+        case _ =>
+          for {
+            v0 <- verse0.map(_.toInt)
+            v1 <- verse1.map(_.toInt)
+            r0 = Math.min(v0, v1)
+            r1 = Math.max(v0, v1)
+          } yield (r0 to r1).map(_.toString).toJSArray
+      }
+    }
+
+    terms match {
+      case book :: chapter :: Nil => new Selection(book, chapter, verses = js.undefined)
+      case book :: chapter :: verse :: Nil => new Selection(book, chapter, verses = js.Array(verse))
+      case book :: chapter :: fromVerse :: toVerse :: Nil => new Selection(book, chapter, verses = range(fromVerse, toVerse))
+      case _ => js.undefined
+    }
+  }
+
+  /////////////////////////////////////////////////////////////////////////////////
+  //      Exported Methods
+  /////////////////////////////////////////////////////////////////////////////////
+
+  $scope.initHome = () => init()
+
+  $scope.isSelected = (aVerse: js.UndefOr[Verse]) => {
+    (for {
+      verses <- $scope.selection.flatMap(_.verses)
+      verse <- aVerse.map(_.verse)
+    } yield verses.contains(verse)).contains(true)
+  }
+
+  $scope.loadChapter = (aName: js.UndefOr[String], aChapter: js.UndefOr[String]) => {
+    $scope.errors = js.undefined
+    loadChapter(aName, aChapter)
+  }
+
+  $scope.search = (aSearchText: js.UndefOr[String]) => {
+    $scope.errors = js.undefined
+    search(aSearchText)
+  }
+
+  $scope.updateChapters = (aName: js.UndefOr[String]) => updateChapters(aName)
 
 }
 
@@ -140,17 +240,15 @@ object HomeController {
 
   class BibleBookJS(val name: String, val displayName: String, val chapters: Int) extends js.Object
 
-  class BibleBook(val name: String, val chapters: Int) extends js.Object
-
-  object BibleBook {
-    def apply(name: String, chapters: Int): BibleBook = new BibleBook(name, chapters)
-
-    def unapply(bibleBook: BibleBook): Option[(String, Int)] = Some((bibleBook.name, bibleBook.chapters))
-  }
-
-  class Selection(var book: js.UndefOr[String],
-                  var chapter: js.UndefOr[String],
-                  var verse: js.UndefOr[String]) extends js.Object
+  /**
+    * Represents a bible chapter or verse selection
+    * @param book    the selected Bible book
+    * @param chapter the selected Bible chapter
+    * @param verses  the selected Bible verse
+    */
+  class Selection(val book: js.UndefOr[String],
+                  val chapter: js.UndefOr[String],
+                  val verses: js.UndefOr[js.Array[String]]) extends js.Object
 
 }
 
@@ -162,13 +260,17 @@ object HomeController {
 trait HomeScope extends RootScope {
   // variables
   var bibleBookNames: js.UndefOr[js.Array[BibleBookJS]] = js.native
-  var selection: js.UndefOr[Selection] = js.native
   var chapters: js.UndefOr[js.Array[String]] = js.native
+  var errors: js.UndefOr[js.Array[String]] = js.native
   var verses: js.UndefOr[js.Array[Verse]] = js.native
+  var searchText: js.UndefOr[String] = js.native
+  var selection: js.UndefOr[Selection] = js.native
 
   // functions
   var initHome: js.Function0[Unit] = js.native
+  var isSelected: js.Function1[js.UndefOr[Verse], Boolean] = js.native
   var loadChapter: js.Function2[js.UndefOr[String], js.UndefOr[String], Unit] = js.native
+  var search: js.Function1[js.UndefOr[String], Unit] = js.native
   var updateChapters: js.Function1[js.UndefOr[String], Unit] = js.native
 
 }
