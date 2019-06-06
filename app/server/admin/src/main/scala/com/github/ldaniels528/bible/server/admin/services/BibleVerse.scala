@@ -11,8 +11,8 @@ import scala.scalajs.js
   * @param responseTime the response time of the service
   */
 class BibleVerse(val book: String,
-                 val chapter: String,
-                 val verse: String,
+                 val chapter: Int,
+                 val verse: Int,
                  val text: String,
                  val responseTime: Double) extends js.Object
 
@@ -32,8 +32,8 @@ object BibleVerse {
     * @return a new [[BibleVerse]]
     */
   def apply(book: String,
-            chapter: String,
-            verse: String,
+            chapter: Int,
+            verse: Int,
             text: String,
             responseTime: Double): BibleVerse = new BibleVerse(book, chapter, verse, text, responseTime)
 

@@ -25,6 +25,8 @@ case class HomeController($scope: HomeScope, $log: Log,
   def init(): Unit = {
     console.info(s"Initializing ${getClass.getSimpleName}...")
 
+    $scope.listMode = true
+
     // get a random book of the bible
     val aRandomBook = bibleBooks(new Random().nextInt(bibleBooks.length)).name
 
@@ -108,7 +110,7 @@ case class HomeController($scope: HomeScope, $log: Log,
     * @return the [[Selection]] or <code>undefined</code>
     */
   private def parseSelection(searchText: String): js.UndefOr[Selection] = {
-    val terms = searchText.map {
+    val terms = searchText.toLowerCase().map {
       case c if c.isLetterOrDigit => c
       case _ => ' '
     }.trim.replaceAllLiterally("  ", " ").split(' ').toList
@@ -262,6 +264,7 @@ trait HomeScope extends RootScope {
   var bibleBookNames: js.UndefOr[js.Array[BibleBookJS]] = js.native
   var chapters: js.UndefOr[js.Array[String]] = js.native
   var errors: js.UndefOr[js.Array[String]] = js.native
+  var listMode: js.UndefOr[Boolean] = js.native
   var verses: js.UndefOr[js.Array[Verse]] = js.native
   var searchText: js.UndefOr[String] = js.native
   var selection: js.UndefOr[Selection] = js.native

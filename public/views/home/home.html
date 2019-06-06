@@ -1,5 +1,5 @@
 <div ng-controller="HomeController" ng-init="initHome()">
-    <div class="title">Research Bible</div>
+    <div class="title">BibleThumpers.com</div>
 
     <div class="col-md-12">
         <select ng-model="selection.book"
@@ -12,8 +12,11 @@
                 ng-options="chapter as chapter for chapter in chapters">
         </select>
 
+        <i ng-class="'clickable middle fa fa-2x fa-toggle-' + (listMode ? 'on' : 'off')"
+           ng-click="listMode = !listMode"></i>
+
         <span style="float: right; margin-right: 50px">
-            <input ng-model="searchText" type="text" size="30" class="search_field">
+            <input ng-model="searchText" type="text" size="60" class="search_field">
             <button ng-click="search(searchText)" class="search_button">Search</button>
         </span>
     </div>
@@ -23,7 +26,12 @@
     </div>
 
     <div class="col-md-12" style="margin-top: 16px; margin-right: 32px;">
-        <span ng-repeat="verse in verses">
+        <div ng-show="listMode" ng-repeat="verse in verses">
+            <i ng-class="'clickable middle fa fa-bookmark-o'"></i>
+            <span ng-class="isSelected(verse) ? 'selected_verse' : 'verse_number'"><sup>{{ verse.verse }}</sup></span>
+            <span ng-class="isSelected(verse) ? 'selected_text' : 'verse_text'">{{ verse.text }}</span>
+        </div>
+        <span ng-hide="listMode" ng-repeat="verse in verses">
             <span ng-class="isSelected(verse) ? 'selected_verse' : 'verse_number'"><sup>{{ verse.verse }}</sup></span>
             <span ng-class="isSelected(verse) ? 'selected_text' : 'verse_text'">{{ verse.text }}</span>
         </span>

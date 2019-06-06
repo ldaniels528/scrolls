@@ -78,8 +78,8 @@ trait BibleHubHtmlParser {
         promise.success(mappings.toSeq sortBy (_._1.toInt) map { case (verse, list) =>
           new BibleVerse(
             book = book,
-            chapter = chapter,
-            verse = verse,
+            chapter = chapter.toInt,
+            verse = verse.toInt,
             text = list.init.mkString,
             responseTime = System.currentTimeMillis() - startTime)
         } toList)

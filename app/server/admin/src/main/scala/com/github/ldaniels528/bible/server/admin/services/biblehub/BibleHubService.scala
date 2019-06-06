@@ -22,12 +22,26 @@ object BibleHubService extends BibleService with BibleHubHtmlParser {
     * @return the promise of a collection of [[BibleVerse Bible verses]]
     */
   override def apply(translation: String, book: String, chapter: String)(implicit ec: ExecutionContext): Future[List[BibleVerse]] = {
-    val startTime = js.Date.now()
     logger.info(s"Retrieving '$translation/$book/$chapter' [${toURL(translation, book, chapter)}]...")
+    val startTime = js.Date.now()
     for {
       (_, html) <- Request.getFuture(toURL(translation, book, chapter))
       profileOpt <- parseHtml(book, chapter, html.toString, startTime)
     } yield profileOpt
+  }
+
+  /**
+    * Returns the promise of a collection of a Bible verses
+    * @param translation the given Bible translation (e.g. "esv")
+    * @param book        the given Bible book (e.g. "genesis")
+    * @param chapter     the given Bible chapter
+    * @return the promise of a collection of [[BibleVerse Bible verses]]
+    */
+  override def download(translation: String, book: String, chapter: String)(implicit ec: ExecutionContext): Future[String] = {
+    logger.info(s"Retrieving '$translation/$book/$chapter' [${toURL(translation, book, chapter)}]...")
+    for {
+      (_, html) <- Request.getFuture(toURL(translation, book, chapter))
+    } yield html.toString
   }
 
   @inline

@@ -4,7 +4,7 @@ import com.github.ldaniels528.bible.webapp.server.util.LoggerFactory
 import io.scalajs.JSON
 import io.scalajs.nodejs.fs.Fs
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
   * Represents the File-based implementation of Bible DAO
@@ -12,56 +12,48 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 object BibleDAOLocalFiles extends BibleDAO {
   private val logger = LoggerFactory.getLogger(getClass)
-  private val verses = loadBible()
+  private val scriptures = loadScriptures()
 
-  override def find(book: String, chapter: Int, verse: Int): Future[Option[BibleVerse]] = Future.successful {
-    for {
-      bookMap <- verses.get(book.toLowerCase)
-      chapMap <- bookMap.get(chapter)
-      verse <- chapMap.get(verse)
-    } yield verse
+  override def find(book: String, chapter: Int, verse: Int): Future[Option[Scripture]] = Future.successful {
+    scriptures.find(s => s.book == book & s.chapter == chapter & s.verse == verse)
   }
 
-  override def find(book: String, chapter: Int): Future[List[BibleVerse]] = Future.successful {
-    for {
-      bookMap <- verses.get(book.toLowerCase).toList
-      chapMap <- bookMap.get(chapter).toList
-      verses <- chapMap.toList.sortBy(_._1).map(_._2)
-    } yield verses
+  override def find(book: String, chapter: Int): Future[List[Scripture]] = Future.successful {
+    scriptures.filter(s => s.book == book & s.chapter == chapter).sortBy(_.verse)
   }
 
-  override def find(book: String, chapter: Int, fromVerse: Int, toVerse: Int)(implicit ec: ExecutionContext): Future[List[BibleVerse]] = {
-    find(book, chapter).map(_.filter(r => r.verse.toInt >= fromVerse && r.verse.toInt <= toVerse))
+  override def find(book: String, chapter: Int, fromVerse: Int, toVerse: Int): Future[List[Scripture]] = Future.successful {
+    scriptures.filter(s => s.book == book & s.chapter == chapter & s.verse >= fromVerse & s.verse <= toVerse).sortBy(_.verse)
   }
 
-  def loadBible(): Map[String, Map[Int, Map[Int, BibleVerse]]] = {
-    val allVerses = for {
-      file <- getFiles("scriptures/bible")
-      verse <- loadBibleVerses(file)
-    } yield verse
+  override def findAll: Future[List[Scripture]] = Future.successful(scriptures)
 
-    allVerses.groupBy(_.book).map { case (book, bookVerses) =>
-      book -> bookVerses.groupBy(_.chapter).map { case (chapter, chapterVerses) =>
-        chapter.toInt -> Map(chapterVerses.map(v => v.verse.toInt -> v): _*)
-      }
-    }
+  override def where(f: Scripture => Boolean): Future[List[Scripture]] = Future.successful {
+    scriptures.filter(f).sortBy(_.verse)
   }
 
-  def loadBibleVerses(file: String): Seq[BibleVerse] = {
-    try Fs.readFileSync(file).toString(encoding = "utf8").split("[\n]").map(js => JSON.parseAs[BibleVerse](js)) catch {
+  private def loadScriptureFile(file: String): Seq[Scripture] = {
+    try Fs.readFileSync(file).toString(encoding = "utf8").split("[\n]").map(js => JSON.parseAs[Scripture](js)) catch {
       case e: Exception =>
         logger.error(s"Failed to read file '$file': ${e.getMessage}")
         Nil
     }
   }
 
-  def getFiles(path: String): List[String] = {
-    Fs.statSync(path) match {
-      case stat if stat.isDirectory() =>
-        Fs.readdirSync(path).toList.filterNot(_.startsWith(".")).flatMap(subPath => getFiles(s"$path/$subPath"))
-      case stat if stat.isFile() => path :: Nil
-      case _ => Nil
-    }
+  private def loadScriptures(): List[Scripture] = {
+    val translations = List("esv")
+    for {
+      translation <- translations
+      file <- getFiles(s"scriptures/bible/$translation")
+      item <- loadScriptureFile(file)
+    } yield Scripture(book = item.book, translation, chapter = item.chapter, verse = item.verse, text = item.text)
+  }
+
+  private def getFiles(path: String): List[String] = Fs.statSync(path) match {
+    case stat if stat.isDirectory() =>
+      Fs.readdirSync(path).toList.filterNot(_.startsWith(".")).flatMap(subPath => getFiles(s"$path/$subPath"))
+    case stat if stat.isFile() => path :: Nil
+    case _ => Nil
   }
 
 }

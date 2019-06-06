@@ -1,6 +1,6 @@
 package com.github.ldaniels528.bible.webapp.server.dao
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
   * Represents a Bible DAO
@@ -8,11 +8,15 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait BibleDAO {
 
-  def find(book: String, chapter: Int): Future[List[BibleVerse]]
+  def find(book: String, chapter: Int): Future[List[Scripture]]
 
-  def find(book: String, chapter: Int, verse: Int): Future[Option[BibleVerse]]
+  def find(book: String, chapter: Int, verse: Int): Future[Option[Scripture]]
 
-  def find(book: String, chapter: Int, fromVerse: Int, toVerse: Int)(implicit ec: ExecutionContext): Future[List[BibleVerse]]
+  def find(book: String, chapter: Int, fromVerse: Int, toVerse: Int): Future[List[Scripture]]
+
+  def findAll: Future[List[Scripture]]
+
+  def where(f: Scripture => Boolean): Future[List[Scripture]]
 
 }
 

@@ -6,6 +6,14 @@ body {
     text-align: right;
 }
 
+.clickable {
+    cursor: pointer;
+}
+
+.middle {
+    vertical-align: middle;
+}
+
 .title {
     color: #005088;
     font-size: 20pt;

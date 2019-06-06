@@ -20,6 +20,15 @@ trait BibleService {
   def apply(translation: String, book: String, chapter: String)(implicit ec: ExecutionContext): Future[List[BibleVerse]]
 
   /**
+    * Returns the promise of a collection of a Bible verses
+    * @param translation the given Bible translation (e.g. "esv")
+    * @param book        the given Bible book (e.g. "genesis")
+    * @param chapter     the given Bible chapter (e.g. "8")
+    * @return the promise of a collection of [[BibleVerse Bible verses]]
+    */
+  def download(translation: String, book: String, chapter: String)(implicit ec: ExecutionContext): Future[String]
+
+  /**
     * Returns the service's provider name
     * @return the service's provider name (e.g. "BibleHub")
     */
